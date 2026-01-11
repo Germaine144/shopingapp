@@ -11,7 +11,8 @@ const ProductCard = ({ product }) => {
   const { success, error, info } = useToast();
   const navigate = useNavigate();
   
-  const isWishlisted = wishlist.some(item => item.id === product.id);
+  // ✅ FIXED: Safety check for undefined wishlist
+  const isWishlisted = wishlist?.some(item => item.id === product.id) || false;
 
   const handleAddToCart = (e) => {
     e.preventDefault();
@@ -35,12 +36,18 @@ const ProductCard = ({ product }) => {
       return;
     }
 
-    toggleWishlist(product);
-    
-    if (isWishlisted) {
-      info(`${product.title} removed from wishlist`);
+    // Check if toggleWishlist function exists
+    if (toggleWishlist) {
+      toggleWishlist(product);
+      
+      if (isWishlisted) {
+        info(`${product.title} removed from wishlist`);
+      } else {
+        success(`${product.title} added to wishlist!`);
+      }
     } else {
-      success(`${product.title} added to wishlist!`);
+      // If toggleWishlist doesn't exist, show info
+      info('Wishlist feature is not available yet');
     }
   };
 

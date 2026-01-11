@@ -183,27 +183,32 @@ const EditProductModal = ({ product, onClose, onSubmit }) => {
   );
 };
 
-// Add User Modal Component
-const AddUserModal = ({ onClose, onSubmit }) => {
+// Add/Edit User Modal Component (Works for both API and Registered users)
+const UserModal = ({ user, onClose, onSubmit, isEdit = false }) => {
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    username: '',
-    email: '',
-    password: '',
-    phone: '',
+    firstName: user?.firstName || '',
+    lastName: user?.lastName || '',
+    username: user?.username || '',
+    email: user?.email || '',
+    password: user?.password || '',
+    phone: user?.phone || '',
+    image: user?.image || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + Math.random(),
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(formData);
+    if (isEdit) {
+      onSubmit(user.id, formData);
+    } else {
+      onSubmit(formData);
+    }
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl max-w-md w-full p-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold">Add New User</h3>
+          <h3 className="text-xl font-bold">{isEdit ? 'Edit User' : 'Add New User'}</h3>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
             <X className="w-5 h-5" />
           </button>
@@ -239,6 +244,7 @@ const AddUserModal = ({ onClose, onSubmit }) => {
               value={formData.username}
               onChange={(e) => setFormData({...formData, username: e.target.value})}
               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black"
+              disabled={isEdit}
             />
           </div>
           <div>
@@ -251,16 +257,18 @@ const AddUserModal = ({ onClose, onSubmit }) => {
               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Password</label>
-            <input
-              type="password"
-              required
-              value={formData.password}
-              onChange={(e) => setFormData({...formData, password: e.target.value})}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black"
-            />
-          </div>
+          {!isEdit && (
+            <div>
+              <label className="block text-sm font-medium mb-1">Password</label>
+              <input
+                type="password"
+                required
+                value={formData.password}
+                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black"
+              />
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium mb-1">Phone</label>
             <input
@@ -274,82 +282,7 @@ const AddUserModal = ({ onClose, onSubmit }) => {
             type="submit"
             className="w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800"
           >
-            Add User
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-// Edit User Modal Component
-const EditUserModal = ({ user, onClose, onSubmit }) => {
-  const [formData, setFormData] = useState({
-    firstName: user.firstName || '',
-    lastName: user.lastName || '',
-    username: user.username || '',
-    email: user.email || '',
-    phone: user.phone || '',
-  });
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit(user.id, formData);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl max-w-md w-full p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold">Edit User</h3>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">First Name</label>
-              <input
-                type="text"
-                value={formData.firstName}
-                onChange={(e) => setFormData({...formData, firstName: e.target.value})}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Last Name</label>
-              <input
-                type="text"
-                value={formData.lastName}
-                onChange={(e) => setFormData({...formData, lastName: e.target.value})}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({...formData, email: e.target.value})}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Phone</label>
-            <input
-              type="tel"
-              value={formData.phone}
-              onChange={(e) => setFormData({...formData, phone: e.target.value})}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black"
-            />
-          </div>
-          <button
-            type="submit"
-            className="w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800"
-          >
-            Update User
+            {isEdit ? 'Update User' : 'Add User'}
           </button>
         </form>
       </div>
@@ -363,7 +296,7 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const { success, error: showError } = useToast();
   
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('products');
   const [products, setProducts] = useState([]);
   const [apiUsers, setApiUsers] = useState([]);
   const [registeredUsers, setRegisteredUsers] = useState([]);
@@ -380,8 +313,33 @@ const AdminDashboard = () => {
   // Modal states
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [showAddUserModal, setShowAddUserModal] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
+  const [showAddApiUserModal, setShowAddApiUserModal] = useState(false);
+  const [editingApiUser, setEditingApiUser] = useState(null);
+  const [showAddRegisteredUserModal, setShowAddRegisteredUserModal] = useState(false);
+  const [editingRegisteredUser, setEditingRegisteredUser] = useState(null);
+
+  // Load registered users from localStorage
+  const loadRegisteredUsers = () => {
+    try {
+      const users = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+      setRegisteredUsers(users);
+      return users;
+    } catch (error) {
+      console.error('Error loading registered users:', error);
+      return [];
+    }
+  };
+
+  // Save registered users to localStorage
+  const saveRegisteredUsers = (users) => {
+    try {
+      localStorage.setItem('registeredUsers', JSON.stringify(users));
+      setRegisteredUsers(users);
+    } catch (error) {
+      console.error('Error saving registered users:', error);
+      showError('Failed to save users');
+    }
+  };
 
   useEffect(() => {
     fetchDashboardData();
@@ -396,12 +354,10 @@ const AdminDashboard = () => {
         api.getAllCarts({ limit: 10 }),
       ]);
 
-      const localUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+      const localUsers = loadRegisteredUsers();
 
       setProducts(productsRes.data.products || []);
       setApiUsers(usersRes.data.users || []);
-      setRegisteredUsers(localUsers);
-      setCarts(cartsRes.data.carts || []);
       
       setStats({
         totalProducts: productsRes.data.total || 0,
@@ -409,6 +365,8 @@ const AdminDashboard = () => {
         totalRegisteredUsers: localUsers.length,
         totalCarts: cartsRes.data.total || 0,
       });
+      
+      setCarts(cartsRes.data.carts || []);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       showError('Failed to load dashboard data');
@@ -426,6 +384,7 @@ const AdminDashboard = () => {
       if (response.data) {
         success(`Product "${productData.title}" added successfully!`);
         setProducts([response.data, ...products]);
+        setStats({...stats, totalProducts: stats.totalProducts + 1});
         setShowAddProductModal(false);
       }
     } catch (error) {
@@ -456,22 +415,24 @@ const AdminDashboard = () => {
       await api.deleteProduct(productId);
       success(`Product "${productTitle}" deleted successfully!`);
       setProducts(products.filter(p => p.id !== productId));
+      setStats({...stats, totalProducts: stats.totalProducts - 1});
     } catch (error) {
       console.error('Delete product error:', error);
       showError('Failed to delete product');
     }
   };
 
-  // ==================== USER CRUD ====================
+  // ==================== API USER CRUD ====================
   
-  const handleAddUser = async (userData) => {
+  const handleAddApiUser = async (userData) => {
     try {
       const response = await api.addUser(userData);
       
       if (response.data) {
         success(`User "${userData.firstName} ${userData.lastName}" added successfully!`);
         setApiUsers([response.data, ...apiUsers]);
-        setShowAddUserModal(false);
+        setStats({...stats, totalApiUsers: stats.totalApiUsers + 1});
+        setShowAddApiUserModal(false);
       }
     } catch (error) {
       console.error('Add user error:', error);
@@ -479,14 +440,14 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleUpdateUser = async (userId, userData) => {
+  const handleUpdateApiUser = async (userId, userData) => {
     try {
       const response = await api.updateUser(userId, userData);
       
       if (response.data) {
         success(`User "${userData.firstName} ${userData.lastName}" updated successfully!`);
         setApiUsers(apiUsers.map(u => u.id === userId ? response.data : u));
-        setEditingUser(null);
+        setEditingApiUser(null);
       }
     } catch (error) {
       console.error('Update user error:', error);
@@ -494,16 +455,53 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleDeleteUser = async (userId, userName) => {
+  const handleDeleteApiUser = async (userId, userName) => {
     if (!window.confirm(`Are you sure you want to delete user "${userName}"?`)) return;
 
     try {
       await api.deleteUser(userId);
       success(`User "${userName}" deleted successfully!`);
       setApiUsers(apiUsers.filter(u => u.id !== userId));
+      setStats({...stats, totalApiUsers: stats.totalApiUsers - 1});
     } catch (error) {
       console.error('Delete user error:', error);
       showError('Failed to delete user');
+    }
+  };
+
+  // ==================== REGISTERED USER CRUD (LOCAL) ====================
+  
+  const handleAddRegisteredUser = (userData) => {
+    try {
+      const newUser = {
+        id: Date.now().toString(),
+        ...userData,
+        createdAt: new Date().toISOString(),
+        role: 'user',
+      };
+      
+      const updatedUsers = [newUser, ...registeredUsers];
+      saveRegisteredUsers(updatedUsers);
+      setStats({...stats, totalRegisteredUsers: updatedUsers.length});
+      success(`User "${userData.firstName} ${userData.lastName}" added successfully!`);
+      setShowAddRegisteredUserModal(false);
+    } catch (error) {
+      console.error('Add registered user error:', error);
+      showError('Failed to add user');
+    }
+  };
+
+  const handleUpdateRegisteredUser = (userId, userData) => {
+    try {
+      const updatedUsers = registeredUsers.map(u => 
+        u.id === userId ? { ...u, ...userData, updatedAt: new Date().toISOString() } : u
+      );
+      saveRegisteredUsers(updatedUsers);
+      success(`User "${userData.firstName} ${userData.lastName}" updated successfully!`);
+      setEditingRegisteredUser(null);
+    } catch (error) {
+      console.error('Update registered user error:', error);
+      showError('Failed to update user');
     }
   };
 
@@ -512,12 +510,8 @@ const AdminDashboard = () => {
 
     try {
       const updatedUsers = registeredUsers.filter(u => u.id !== userId);
-      localStorage.setItem('registeredUsers', JSON.stringify(updatedUsers));
-      setRegisteredUsers(updatedUsers);
-      setStats({
-        ...stats,
-        totalRegisteredUsers: updatedUsers.length
-      });
+      saveRegisteredUsers(updatedUsers);
+      setStats({...stats, totalRegisteredUsers: updatedUsers.length});
       success(`User "${userName}" deleted successfully!`);
     } catch (error) {
       console.error('Delete error:', error);
@@ -534,6 +528,7 @@ const AdminDashboard = () => {
       await api.deleteCart(cartId);
       success(`Cart #${cartId} deleted successfully!`);
       setCarts(carts.filter(c => c.id !== cartId));
+      setStats({...stats, totalCarts: stats.totalCarts - 1});
     } catch (error) {
       console.error('Delete cart error:', error);
       showError('Failed to delete cart');
@@ -572,17 +567,34 @@ const AdminDashboard = () => {
           onSubmit={handleUpdateProduct}
         />
       )}
-      {showAddUserModal && (
-        <AddUserModal
-          onClose={() => setShowAddUserModal(false)}
-          onSubmit={handleAddUser}
+      {showAddApiUserModal && (
+        <UserModal
+          onClose={() => setShowAddApiUserModal(false)}
+          onSubmit={handleAddApiUser}
+          isEdit={false}
         />
       )}
-      {editingUser && (
-        <EditUserModal
-          user={editingUser}
-          onClose={() => setEditingUser(null)}
-          onSubmit={handleUpdateUser}
+      {editingApiUser && (
+        <UserModal
+          user={editingApiUser}
+          onClose={() => setEditingApiUser(null)}
+          onSubmit={handleUpdateApiUser}
+          isEdit={true}
+        />
+      )}
+      {showAddRegisteredUserModal && (
+        <UserModal
+          onClose={() => setShowAddRegisteredUserModal(false)}
+          onSubmit={handleAddRegisteredUser}
+          isEdit={false}
+        />
+      )}
+      {editingRegisteredUser && (
+        <UserModal
+          user={editingRegisteredUser}
+          onClose={() => setEditingRegisteredUser(null)}
+          onSubmit={handleUpdateRegisteredUser}
+          isEdit={true}
         />
       )}
 
@@ -733,7 +745,7 @@ const AdminDashboard = () => {
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-xl font-bold">API Users Management</h2>
                   <button
-                    onClick={() => setShowAddUserModal(true)}
+                    onClick={() => setShowAddApiUserModal(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-full hover:bg-gray-800"
                   >
                     <Plus className="w-4 h-4" />
@@ -769,13 +781,13 @@ const AdminDashboard = () => {
                           <td className="py-4 px-4">
                             <div className="flex justify-end gap-2">
                               <button
-                                onClick={() => setEditingUser(apiUser)}
+                                onClick={() => setEditingApiUser(apiUser)}
                                 className="p-2 hover:bg-gray-100 rounded-lg"
                               >
                                 <Edit className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={() => handleDeleteUser(apiUser.id, `${apiUser.firstName} ${apiUser.lastName}`)}
+                                onClick={() => handleDeleteApiUser(apiUser.id, `${apiUser.firstName} ${apiUser.lastName}`)}
                                 className="p-2 hover:bg-red-50 rounded-lg"
                               >
                                 <Trash2 className="w-4 h-4 text-red-600" />
@@ -793,11 +805,27 @@ const AdminDashboard = () => {
             {/* REGISTERED USERS TAB */}
             {activeTab === 'registered-users' && (
               <div>
-                <h2 className="text-xl font-bold mb-6">Registered Users</h2>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-bold">Registered Users</h2>
+                  <button
+                    onClick={() => setShowAddRegisteredUserModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-full hover:bg-gray-800"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add User
+                  </button>
+                </div>
                 {registeredUsers.length === 0 ? (
                   <div className="text-center py-12 bg-gray-50 rounded-lg">
                     <UserCheck className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600">No registered users yet</p>
+                    <p className="text-gray-600 mb-4">No registered users yet</p>
+                    <button
+                      onClick={() => setShowAddRegisteredUserModal(true)}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded-full hover:bg-gray-800"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add First User
+                    </button>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -825,7 +853,13 @@ const AdminDashboard = () => {
                             <td className="py-4 px-4">{regUser.email}</td>
                             <td className="py-4 px-4">{new Date(regUser.createdAt).toLocaleDateString()}</td>
                             <td className="py-4 px-4">
-                              <div className="flex justify-end">
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  onClick={() => setEditingRegisteredUser(regUser)}
+                                  className="p-2 hover:bg-gray-100 rounded-lg"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </button>
                                 <button
                                   onClick={() => handleDeleteRegisteredUser(regUser.id, `${regUser.firstName} ${regUser.lastName}`)}
                                   className="p-2 hover:bg-red-50 rounded-lg"
