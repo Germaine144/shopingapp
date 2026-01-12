@@ -11,28 +11,30 @@ const ProductCard = ({ product }) => {
   const { success, error, info } = useToast();
   const navigate = useNavigate();
   
-  // ✅ FIXED: Safety check for undefined wishlist
+  // ✅ Safety check for undefined wishlist
   const isWishlisted = wishlist?.some(item => item.id === product.id) || false;
 
+  // ✅ FIXED: Remove login check - allow adding to cart without login
   const handleAddToCart = (e) => {
     e.preventDefault();
     
-    if (!isLoggedIn) {
-      info('Please login to add items to cart');
-      navigate('/login');
-      return;
-    }
-
+    // Just add to cart directly - no login required
     addToCart(product);
     success(`${product.title} added to cart!`);
   };
 
+  // Keep login requirement for wishlist (as discussed)
   const handleToggleWishlist = (e) => {
     e.preventDefault();
     
     if (!isLoggedIn) {
       info('Please login to add items to wishlist');
-      navigate('/login');
+      navigate('/login', { 
+        state: { 
+          from: window.location.pathname,
+          message: 'Please login to manage your wishlist' 
+        } 
+      });
       return;
     }
 

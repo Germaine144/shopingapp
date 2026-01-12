@@ -60,6 +60,7 @@ const AddProductModal = ({ onClose, onSubmit }) => {
               <input
                 type="number"
                 required
+                step="0.01"
                 value={formData.price}
                 onChange={(e) => setFormData({...formData, price: e.target.value})}
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black"
@@ -156,6 +157,7 @@ const EditProductModal = ({ product, onClose, onSubmit }) => {
               <label className="block text-sm font-medium mb-1">Price</label>
               <input
                 type="number"
+                step="0.01"
                 value={formData.price}
                 onChange={(e) => setFormData({...formData, price: e.target.value})}
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black"
@@ -170,6 +172,24 @@ const EditProductModal = ({ product, onClose, onSubmit }) => {
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black"
               />
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Category</label>
+            <input
+              type="text"
+              value={formData.category}
+              onChange={(e) => setFormData({...formData, category: e.target.value})}
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Brand</label>
+            <input
+              type="text"
+              value={formData.brand}
+              onChange={(e) => setFormData({...formData, brand: e.target.value})}
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black"
+            />
           </div>
           <button
             type="submit"
@@ -298,6 +318,7 @@ const AdminDashboard = () => {
   
   const [activeTab, setActiveTab] = useState('products');
   const [products, setProducts] = useState([]);
+  const [localProducts, setLocalProducts] = useState([]); // ✅ Track locally added products
   const [apiUsers, setApiUsers] = useState([]);
   const [registeredUsers, setRegisteredUsers] = useState([]);
   const [carts, setCarts] = useState([]);
@@ -317,6 +338,28 @@ const AdminDashboard = () => {
   const [editingApiUser, setEditingApiUser] = useState(null);
   const [showAddRegisteredUserModal, setShowAddRegisteredUserModal] = useState(false);
   const [editingRegisteredUser, setEditingRegisteredUser] = useState(null);
+
+  // ✅ Load local products from localStorage
+  const loadLocalProducts = () => {
+    try {
+      const products = JSON.parse(localStorage.getItem('localProducts') || '[]');
+      setLocalProducts(products);
+      return products;
+    } catch (error) {
+      console.error('Error loading local products:', error);
+      return [];
+    }
+  };
+
+  // ✅ Save local products to localStorage
+  const saveLocalProducts = (products) => {
+    try {
+      localStorage.setItem('localProducts', JSON.stringify(products));
+      setLocalProducts(products);
+    } catch (error) {
+      console.error('Error saving local products:', error);
+    }
+  };
 
   // Load registered users from localStorage
   const loadRegisteredUsers = () => {
@@ -355,12 +398,13 @@ const AdminDashboard = () => {
       ]);
 
       const localUsers = loadRegisteredUsers();
+      const localProds = loadLocalProducts(); // ✅ Load local products
 
       setProducts(productsRes.data.products || []);
       setApiUsers(usersRes.data.users || []);
       
       setStats({
-        totalProducts: productsRes.data.total || 0,
+        totalProducts: (productsRes.data.total || 0) + localProds.length, // ✅ Include local products
         totalApiUsers: usersRes.data.total || 0,
         totalRegisteredUsers: localUsers.length,
         totalCarts: cartsRes.data.total || 0,
@@ -375,18 +419,33 @@ const AdminDashboard = () => {
     }
   };
 
+  // ✅ Check if product is local (user-added) or from API
+  const isLocalProduct = (productId) => {
+    return localProducts.some(p => p.id === productId);
+  };
+
   // ==================== PRODUCT CRUD ====================
   
   const handleAddProduct = async (productData) => {
     try {
-      const response = await api.addProduct(productData);
+      // ✅ Save to localStorage instead of relying on API
+      const newProduct = {
+        id: `local-${Date.now()}`, // Unique local ID
+        ...productData,
+        price: parseFloat(productData.price),
+        stock: parseInt(productData.stock),
+        thumbnail: 'https://via.placeholder.com/150',
+        rating: 0,
+        createdAt: new Date().toISOString(),
+        isLocal: true, // Mark as locally created
+      };
       
-      if (response.data) {
-        success(`Product "${productData.title}" added successfully!`);
-        setProducts([response.data, ...products]);
-        setStats({...stats, totalProducts: stats.totalProducts + 1});
-        setShowAddProductModal(false);
-      }
+      const updatedLocalProducts = [newProduct, ...localProducts];
+      saveLocalProducts(updatedLocalProducts);
+      
+      success(`Product "${productData.title}" added successfully!`);
+      setStats({...stats, totalProducts: stats.totalProducts + 1});
+      setShowAddProductModal(false);
     } catch (error) {
       console.error('Add product error:', error);
       showError('Failed to add product');
@@ -395,12 +454,33 @@ const AdminDashboard = () => {
 
   const handleUpdateProduct = async (productId, productData) => {
     try {
-      const response = await api.updateProduct(productId, productData);
-      
-      if (response.data) {
+      // ✅ Check if it's a local product
+      if (isLocalProduct(productId)) {
+        // Update local product
+        const updatedLocalProducts = localProducts.map(p => 
+          p.id === productId ? { 
+            ...p, 
+            ...productData, 
+            price: parseFloat(productData.price),
+            stock: parseInt(productData.stock),
+            updatedAt: new Date().toISOString() 
+          } : p
+        );
+        saveLocalProducts(updatedLocalProducts);
         success(`Product "${productData.title}" updated successfully!`);
-        setProducts(products.map(p => p.id === productId ? response.data : p));
         setEditingProduct(null);
+      } else {
+        // Update API product (this won't actually persist in DummyJSON)
+        const response = await api.updateProduct(productId, productData);
+        
+        if (response.data) {
+          // Update in local state for display purposes
+          setProducts(products.map(p => 
+            p.id === productId ? { ...p, ...productData } : p
+          ));
+          success(`Product "${productData.title}" updated successfully!`);
+          setEditingProduct(null);
+        }
       }
     } catch (error) {
       console.error('Update product error:', error);
@@ -412,10 +492,22 @@ const AdminDashboard = () => {
     if (!window.confirm(`Are you sure you want to delete "${productTitle}"?`)) return;
 
     try {
-      await api.deleteProduct(productId);
-      success(`Product "${productTitle}" deleted successfully!`);
-      setProducts(products.filter(p => p.id !== productId));
-      setStats({...stats, totalProducts: stats.totalProducts - 1});
+      // ✅ Check if it's a local product
+      if (isLocalProduct(productId)) {
+        // Delete local product
+        const updatedLocalProducts = localProducts.filter(p => p.id !== productId);
+        saveLocalProducts(updatedLocalProducts);
+        setStats({...stats, totalProducts: Math.max(0, stats.totalProducts - 1)});
+        success(`Product "${productTitle}" deleted successfully!`);
+      } else {
+        // Delete API product (this won't actually persist in DummyJSON)
+        await api.deleteProduct(productId);
+        
+        // Remove from local state for display purposes
+        setProducts(products.filter(p => p.id !== productId));
+        setStats({...stats, totalProducts: Math.max(0, stats.totalProducts - 1)});
+        success(`Product "${productTitle}" deleted successfully!`);
+      }
     } catch (error) {
       console.error('Delete product error:', error);
       showError('Failed to delete product');
@@ -445,8 +537,11 @@ const AdminDashboard = () => {
       const response = await api.updateUser(userId, userData);
       
       if (response.data) {
+        // ✅ Update in local state
+        setApiUsers(apiUsers.map(u => 
+          u.id === userId ? { ...u, ...userData } : u
+        ));
         success(`User "${userData.firstName} ${userData.lastName}" updated successfully!`);
-        setApiUsers(apiUsers.map(u => u.id === userId ? response.data : u));
         setEditingApiUser(null);
       }
     } catch (error) {
@@ -460,9 +555,11 @@ const AdminDashboard = () => {
 
     try {
       await api.deleteUser(userId);
-      success(`User "${userName}" deleted successfully!`);
+      
+      // ✅ Remove from local state
       setApiUsers(apiUsers.filter(u => u.id !== userId));
-      setStats({...stats, totalApiUsers: stats.totalApiUsers - 1});
+      setStats({...stats, totalApiUsers: Math.max(0, stats.totalApiUsers - 1)});
+      success(`User "${userName}" deleted successfully!`);
     } catch (error) {
       console.error('Delete user error:', error);
       showError('Failed to delete user');
@@ -526,9 +623,11 @@ const AdminDashboard = () => {
 
     try {
       await api.deleteCart(cartId);
-      success(`Cart #${cartId} deleted successfully!`);
+      
+      // ✅ Remove from local state
       setCarts(carts.filter(c => c.id !== cartId));
-      setStats({...stats, totalCarts: stats.totalCarts - 1});
+      setStats({...stats, totalCarts: Math.max(0, stats.totalCarts - 1)});
+      success(`Cart #${cartId} deleted successfully!`);
     } catch (error) {
       console.error('Delete cart error:', error);
       showError('Failed to delete cart');
@@ -550,6 +649,9 @@ const AdminDashboard = () => {
       </div>
     );
   }
+
+  // ✅ Combine API products and local products for display
+  const allProducts = [...localProducts, ...products];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -700,11 +802,12 @@ const AdminDashboard = () => {
                         <th className="text-left py-3 px-4">Category</th>
                         <th className="text-left py-3 px-4">Price</th>
                         <th className="text-left py-3 px-4">Stock</th>
+                        {/* <th className="text-left py-3 px-4">Source</th> */}
                         <th className="text-right py-3 px-4">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {products.map((product) => (
+                      {allProducts.map((product) => (
                         <tr key={product.id} className="border-b hover:bg-gray-50">
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-3">
@@ -715,6 +818,13 @@ const AdminDashboard = () => {
                           <td className="py-4 px-4">{product.category}</td>
                           <td className="py-4 px-4 font-medium">${product.price}</td>
                           <td className="py-4 px-4">{product.stock}</td>
+                          {/* <td className="py-4 px-4">
+                            {product.isLocal ? (
+                              <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">Local</span>
+                            ) : (
+                              <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">API</span>
+                            )}
+                          </td> */}
                           <td className="py-4 px-4">
                             <div className="flex justify-end gap-2">
                               <button
