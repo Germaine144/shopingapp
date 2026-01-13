@@ -3,10 +3,48 @@ import { AuthContext } from '../context/AuthContext';
 import { api } from '../api/axiosInstance';
 import { 
   Package, Users, ShoppingCart, Edit, Trash2, 
-  Plus, Search, X, LogOut, UserCheck, Save
+  Plus, Search, X, LogOut, UserCheck, Save, AlertTriangle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ui/Toast';
+
+// Confirmation Modal Component
+const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirmText = "Delete", cancelText = "Cancel" }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl max-w-md w-full p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+            <AlertTriangle className="w-6 h-6 text-red-600" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900">{title}</h3>
+        </div>
+        
+        <p className="text-gray-600 mb-6">{message}</p>
+        
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+          >
+            {cancelText}
+          </button>
+          <button
+            onClick={() => {
+              onConfirm();
+              onClose();
+            }}
+            className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors"
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Add Product Modal Component
 const AddProductModal = ({ onClose, onSubmit }) => {
@@ -203,7 +241,7 @@ const EditProductModal = ({ product, onClose, onSubmit }) => {
   );
 };
 
-// Add/Edit User Modal Component (Works for both API and Registered users)
+// Add/Edit User Modal Component
 const UserModal = ({ user, onClose, onSubmit, isEdit = false }) => {
   const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
@@ -318,7 +356,7 @@ const AdminDashboard = () => {
   
   const [activeTab, setActiveTab] = useState('products');
   const [products, setProducts] = useState([]);
-  const [localProducts, setLocalProducts] = useState([]); // ✅ Track locally added products
+  const [localProducts, setLocalProducts] = useState([]);
   const [apiUsers, setApiUsers] = useState([]);
   const [registeredUsers, setRegisteredUsers] = useState([]);
   const [carts, setCarts] = useState([]);
@@ -338,8 +376,16 @@ const AdminDashboard = () => {
   const [editingApiUser, setEditingApiUser] = useState(null);
   const [showAddRegisteredUserModal, setShowAddRegisteredUserModal] = useState(false);
   const [editingRegisteredUser, setEditingRegisteredUser] = useState(null);
+  
+  // ✅ Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
 
-  // ✅ Load local products from localStorage
+  // Load local products from localStorage
   const loadLocalProducts = () => {
     try {
       const products = JSON.parse(localStorage.getItem('localProducts') || '[]');
@@ -351,7 +397,7 @@ const AdminDashboard = () => {
     }
   };
 
-  // ✅ Save local products to localStorage
+  // Save local products to localStorage
   const saveLocalProducts = (products) => {
     try {
       localStorage.setItem('localProducts', JSON.stringify(products));
@@ -398,13 +444,13 @@ const AdminDashboard = () => {
       ]);
 
       const localUsers = loadRegisteredUsers();
-      const localProds = loadLocalProducts(); // ✅ Load local products
+      const localProds = loadLocalProducts();
 
       setProducts(productsRes.data.products || []);
       setApiUsers(usersRes.data.users || []);
       
       setStats({
-        totalProducts: (productsRes.data.total || 0) + localProds.length, // ✅ Include local products
+        totalProducts: (productsRes.data.total || 0) + localProds.length,
         totalApiUsers: usersRes.data.total || 0,
         totalRegisteredUsers: localUsers.length,
         totalCarts: cartsRes.data.total || 0,
@@ -419,7 +465,7 @@ const AdminDashboard = () => {
     }
   };
 
-  // ✅ Check if product is local (user-added) or from API
+  // Check if product is local
   const isLocalProduct = (productId) => {
     return localProducts.some(p => p.id === productId);
   };
@@ -428,16 +474,15 @@ const AdminDashboard = () => {
   
   const handleAddProduct = async (productData) => {
     try {
-      // ✅ Save to localStorage instead of relying on API
       const newProduct = {
-        id: `local-${Date.now()}`, // Unique local ID
+        id: `local-${Date.now()}`,
         ...productData,
         price: parseFloat(productData.price),
         stock: parseInt(productData.stock),
         thumbnail: 'https://via.placeholder.com/150',
         rating: 0,
         createdAt: new Date().toISOString(),
-        isLocal: true, // Mark as locally created
+        isLocal: true,
       };
       
       const updatedLocalProducts = [newProduct, ...localProducts];
@@ -454,9 +499,7 @@ const AdminDashboard = () => {
 
   const handleUpdateProduct = async (productId, productData) => {
     try {
-      // ✅ Check if it's a local product
       if (isLocalProduct(productId)) {
-        // Update local product
         const updatedLocalProducts = localProducts.map(p => 
           p.id === productId ? { 
             ...p, 
@@ -470,11 +513,9 @@ const AdminDashboard = () => {
         success(`Product "${productData.title}" updated successfully!`);
         setEditingProduct(null);
       } else {
-        // Update API product (this won't actually persist in DummyJSON)
         const response = await api.updateProduct(productId, productData);
         
         if (response.data) {
-          // Update in local state for display purposes
           setProducts(products.map(p => 
             p.id === productId ? { ...p, ...productData } : p
           ));
@@ -489,29 +530,30 @@ const AdminDashboard = () => {
   };
 
   const handleDeleteProduct = async (productId, productTitle) => {
-    if (!window.confirm(`Are you sure you want to delete "${productTitle}"?`)) return;
-
-    try {
-      // ✅ Check if it's a local product
-      if (isLocalProduct(productId)) {
-        // Delete local product
-        const updatedLocalProducts = localProducts.filter(p => p.id !== productId);
-        saveLocalProducts(updatedLocalProducts);
-        setStats({...stats, totalProducts: Math.max(0, stats.totalProducts - 1)});
-        success(`Product "${productTitle}" deleted successfully!`);
-      } else {
-        // Delete API product (this won't actually persist in DummyJSON)
-        await api.deleteProduct(productId);
-        
-        // Remove from local state for display purposes
-        setProducts(products.filter(p => p.id !== productId));
-        setStats({...stats, totalProducts: Math.max(0, stats.totalProducts - 1)});
-        success(`Product "${productTitle}" deleted successfully!`);
+    // ✅ Show confirmation modal instead of window.confirm
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Product',
+      message: `Are you sure you want to delete "${productTitle}"? This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          if (isLocalProduct(productId)) {
+            const updatedLocalProducts = localProducts.filter(p => p.id !== productId);
+            saveLocalProducts(updatedLocalProducts);
+            setStats({...stats, totalProducts: Math.max(0, stats.totalProducts - 1)});
+            success(`Product "${productTitle}" deleted successfully!`);
+          } else {
+            await api.deleteProduct(productId);
+            setProducts(products.filter(p => p.id !== productId));
+            setStats({...stats, totalProducts: Math.max(0, stats.totalProducts - 1)});
+            success(`Product "${productTitle}" deleted successfully!`);
+          }
+        } catch (error) {
+          console.error('Delete product error:', error);
+          showError('Failed to delete product');
+        }
       }
-    } catch (error) {
-      console.error('Delete product error:', error);
-      showError('Failed to delete product');
-    }
+    });
   };
 
   // ==================== API USER CRUD ====================
@@ -537,7 +579,6 @@ const AdminDashboard = () => {
       const response = await api.updateUser(userId, userData);
       
       if (response.data) {
-        // ✅ Update in local state
         setApiUsers(apiUsers.map(u => 
           u.id === userId ? { ...u, ...userData } : u
         ));
@@ -551,22 +592,26 @@ const AdminDashboard = () => {
   };
 
   const handleDeleteApiUser = async (userId, userName) => {
-    if (!window.confirm(`Are you sure you want to delete user "${userName}"?`)) return;
-
-    try {
-      await api.deleteUser(userId);
-      
-      // ✅ Remove from local state
-      setApiUsers(apiUsers.filter(u => u.id !== userId));
-      setStats({...stats, totalApiUsers: Math.max(0, stats.totalApiUsers - 1)});
-      success(`User "${userName}" deleted successfully!`);
-    } catch (error) {
-      console.error('Delete user error:', error);
-      showError('Failed to delete user');
-    }
+    // ✅ Show confirmation modal
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete User',
+      message: `Are you sure you want to delete "${userName}"? This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          await api.deleteUser(userId);
+          setApiUsers(apiUsers.filter(u => u.id !== userId));
+          setStats({...stats, totalApiUsers: Math.max(0, stats.totalApiUsers - 1)});
+          success(`User "${userName}" deleted successfully!`);
+        } catch (error) {
+          console.error('Delete user error:', error);
+          showError('Failed to delete user');
+        }
+      }
+    });
   };
 
-  // ==================== REGISTERED USER CRUD (LOCAL) ====================
+  // ==================== REGISTERED USER CRUD ====================
   
   const handleAddRegisteredUser = (userData) => {
     try {
@@ -603,35 +648,45 @@ const AdminDashboard = () => {
   };
 
   const handleDeleteRegisteredUser = (userId, userName) => {
-    if (!window.confirm(`Are you sure you want to delete "${userName}"?`)) return;
-
-    try {
-      const updatedUsers = registeredUsers.filter(u => u.id !== userId);
-      saveRegisteredUsers(updatedUsers);
-      setStats({...stats, totalRegisteredUsers: updatedUsers.length});
-      success(`User "${userName}" deleted successfully!`);
-    } catch (error) {
-      console.error('Delete error:', error);
-      showError('Failed to delete user');
-    }
+    // ✅ Show confirmation modal
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete User',
+      message: `Are you sure you want to delete "${userName}"? This action cannot be undone.`,
+      onConfirm: () => {
+        try {
+          const updatedUsers = registeredUsers.filter(u => u.id !== userId);
+          saveRegisteredUsers(updatedUsers);
+          setStats({...stats, totalRegisteredUsers: updatedUsers.length});
+          success(`User "${userName}" deleted successfully!`);
+        } catch (error) {
+          console.error('Delete error:', error);
+          showError('Failed to delete user');
+        }
+      }
+    });
   };
 
   // ==================== CART MANAGEMENT ====================
   
   const handleDeleteCart = async (cartId) => {
-    if (!window.confirm('Are you sure you want to delete this cart?')) return;
-
-    try {
-      await api.deleteCart(cartId);
-      
-      // ✅ Remove from local state
-      setCarts(carts.filter(c => c.id !== cartId));
-      setStats({...stats, totalCarts: Math.max(0, stats.totalCarts - 1)});
-      success(`Cart #${cartId} deleted successfully!`);
-    } catch (error) {
-      console.error('Delete cart error:', error);
-      showError('Failed to delete cart');
-    }
+    // ✅ Show confirmation modal
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Cart',
+      message: `Are you sure you want to delete Cart #${cartId}? This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          await api.deleteCart(cartId);
+          setCarts(carts.filter(c => c.id !== cartId));
+          setStats({...stats, totalCarts: Math.max(0, stats.totalCarts - 1)});
+          success(`Cart #${cartId} deleted successfully!`);
+        } catch (error) {
+          console.error('Delete cart error:', error);
+          showError('Failed to delete cart');
+        }
+      }
+    });
   };
 
   const handleLogout = () => {
@@ -650,12 +705,20 @@ const AdminDashboard = () => {
     );
   }
 
-  // ✅ Combine API products and local products for display
   const allProducts = [...localProducts, ...products];
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Modals */}
+      {/* ✅ Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+      />
+
+      {/* Other Modals */}
       {showAddProductModal && (
         <AddProductModal
           onClose={() => setShowAddProductModal(false)}
@@ -802,7 +865,6 @@ const AdminDashboard = () => {
                         <th className="text-left py-3 px-4">Category</th>
                         <th className="text-left py-3 px-4">Price</th>
                         <th className="text-left py-3 px-4">Stock</th>
-                        {/* <th className="text-left py-3 px-4">Source</th> */}
                         <th className="text-right py-3 px-4">Actions</th>
                       </tr>
                     </thead>
@@ -818,13 +880,6 @@ const AdminDashboard = () => {
                           <td className="py-4 px-4">{product.category}</td>
                           <td className="py-4 px-4 font-medium">${product.price}</td>
                           <td className="py-4 px-4">{product.stock}</td>
-                          {/* <td className="py-4 px-4">
-                            {product.isLocal ? (
-                              <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">Local</span>
-                            ) : (
-                              <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">API</span>
-                            )}
-                          </td> */}
                           <td className="py-4 px-4">
                             <div className="flex justify-end gap-2">
                               <button
