@@ -7,7 +7,7 @@ import Header from "./components/layout/Header";
 import Home from "./pages/Home";
 import Products from "./pages/Products";
 import Categories from "./pages/Categories";
-import CategoryProducts from "./pages/Categoryproducts";
+import CategoryProducts from "./pages/CategoryProducts";
 import Cart from "./pages/Cart";
 import Wishlist from "./pages/Wishlist";
 import Login from "./pages/Login";
