@@ -11,10 +11,10 @@ const ProductCard = ({ product }) => {
   const { success, error, info } = useToast();
   const navigate = useNavigate();
   
-  // ✅ Safety check for undefined wishlist
+  //  Safety check for undefined wishlist
   const isWishlisted = wishlist?.some(item => item.id === product.id) || false;
 
-  // ✅ FIXED: Remove login check - allow adding to cart without login
+  //  Remove login check - allow adding to cart without login
   const handleAddToCart = (e) => {
     e.preventDefault();
     
@@ -23,7 +23,7 @@ const ProductCard = ({ product }) => {
     success(`${product.title} added to cart!`);
   };
 
-  // Keep login requirement for wishlist (as discussed)
+  // Klogin  for wishlist 
   const handleToggleWishlist = (e) => {
     e.preventDefault();
     
