@@ -4,6 +4,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { CartProvider } from "./context/CartContext";
 import { ToastProvider } from "./components/ui/Toast";
 import Header from "./components/layout/Header";
+import Footer from "./components/layout/Footer"
 import Home from "./pages/Home";
 import Products from "./pages/Products";
 import Cart from "./pages/Cart";
@@ -13,6 +14,7 @@ import Register from "./pages/Register";
 import AdminDashboard from "./pages/AdminDashboard";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
+import Categories from "./pages/Categories";
 
 function App() {
   return (
@@ -30,25 +32,12 @@ function App() {
                   <Route path="/products" element={<Products />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
+                  <Route path="/categories" element={<Categories/>} />
                   
                   {/* Protected Routes (Regular Users) */}
-                  <Route
-                    path="/cart"
-                    element={
-                      <ProtectedRoute>
-                        <Cart />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/wishlist"
-                    element={
-                      <ProtectedRoute>
-                        <Wishlist />
-                      </ProtectedRoute>
-                    }
-                  />
-                  
+                  <Route path="/cart" element={ <ProtectedRoute> <Cart /></ProtectedRoute> }/>
+                  <Route path="/wishlist" element={ <ProtectedRoute> <Wishlist /> </ProtectedRoute> } />
+              
                   {/* Admin Only Route */}
                   <Route
                     path="/dashboard"
@@ -60,6 +49,7 @@ function App() {
                   />
                 </Routes>
               </main>
+              <Footer/>
             </div>
           </ToastProvider>
         </CartProvider>

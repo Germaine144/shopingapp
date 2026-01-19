@@ -100,7 +100,7 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  // Clear entire cart
+  // Clear entire cart 
   const clearCart = () => {
     if (window.confirm('Are you sure you want to clear your cart?')) {
       setCart([]);
