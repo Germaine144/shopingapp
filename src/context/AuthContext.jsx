@@ -26,35 +26,58 @@ export const AuthProvider = ({ children }) => {
   // Check for saved user on mount
   useEffect(() => {
     const initAuth = async () => {
-      const savedUser = localStorage.getItem('user');
-      const token = localStorage.getItem('accessToken');
+      try {
+        const savedUser = localStorage.getItem('user');
+        const token = localStorage.getItem('accessToken');
 
-      if (savedUser && token) {
-        const parsedUser = JSON.parse(savedUser);
-        
-        // Check if it's admin
-        if (parsedUser.role === 'admin') {
-          setUser(parsedUser);
-          setIsLoggedIn(true);
-          setLoading(false);
-          return;
-        }
+        if (savedUser && token) {
+          const parsedUser = JSON.parse(savedUser);
+          
+          // Check if it's admin
+          if (parsedUser.role === 'admin') {
+            setUser(parsedUser);
+            setIsLoggedIn(true);
+            setLoading(false);
+            return;
+          }
 
-        // For regular users, try to verify with API
-        try {
-          const response = await api.getCurrentUser();
-          setUser(response.data);
-          setIsLoggedIn(true);
-        } catch (error) {
-          // If API fails, check if it's a locally registered user
+          // For regular users, check locally first (faster)
           const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
           const userExists = registeredUsers.find(u => u.id === parsedUser.id);
           
           if (userExists) {
             setUser(parsedUser);
             setIsLoggedIn(true);
+            setLoading(false);
+            return;
+          }
+
+          // Only try API if user is not found locally
+          // Add timeout to prevent hanging
+          if (api.getCurrentUser) {
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Timeout')), 3000)
+            );
+
+            try {
+              const response = await Promise.race([
+                api.getCurrentUser(),
+                timeoutPromise
+              ]);
+              
+              setUser(response.data);
+              setIsLoggedIn(true);
+            } catch (error) {
+              console.log('API verification failed, clearing session');
+              // Invalid, clear storage
+              localStorage.removeItem('user');
+              localStorage.removeItem('accessToken');
+              localStorage.removeItem('refreshToken');
+              setUser(null);
+              setIsLoggedIn(false);
+            }
           } else {
-            // Invalid, clear storage
+            // API method doesn't exist, clear invalid session
             localStorage.removeItem('user');
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
@@ -62,12 +85,21 @@ export const AuthProvider = ({ children }) => {
             setIsLoggedIn(false);
           }
         }
+      } catch (error) {
+        console.error('Auth init error:', error);
+        // On any error, just clear and continue
+        localStorage.removeItem('user');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        setUser(null);
+        setIsLoggedIn(false);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     initAuth();
-  }, []);
+  }, []); // Empty array - runs only once!
 
   const login = async (username, password) => {
     try {
@@ -85,7 +117,15 @@ export const AuthProvider = ({ children }) => {
 
       // SECOND: Try API login (for demo users like 'emilys')
       try {
-        const response = await api.login(username, password, 30);
+        // Add timeout for API call
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('API timeout')), 5000)
+        );
+
+        const response = await Promise.race([
+          api.login(username, password, 30),
+          timeoutPromise
+        ]);
         
         if (response.data) {
           const { accessToken, refreshToken, ...userData } = response.data;
@@ -103,7 +143,7 @@ export const AuthProvider = ({ children }) => {
           return { success: true, user: userData };
         }
       } catch (apiError) {
-        console.log('API login failed, checking local users...');
+        console.log('API login failed, checking local users...', apiError.message);
       }
 
       // THIRD: Check locally registered users

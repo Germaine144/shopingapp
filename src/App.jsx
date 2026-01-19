@@ -7,6 +7,8 @@ import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer"
 import Home from "./pages/Home";
 import Products from "./pages/Products";
+import Categories from "./pages/Categories";
+import CategoryProducts from "./pages/CategoryProducts";
 import Cart from "./pages/Cart";
 import Wishlist from "./pages/Wishlist";
 import Login from "./pages/Login";
@@ -30,6 +32,8 @@ function App() {
                   {/* Public Routes */}
                   <Route path="/" element={<Home />} />
                   <Route path="/products" element={<Products />} />
+                  <Route path="/categories" element={<Categories />} />
+                  <Route path="/category/:categoryName" element={<CategoryProducts />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
                   <Route path="/categories" element={<Categories/>} />

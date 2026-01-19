@@ -3,10 +3,48 @@ import { AuthContext } from '../context/AuthContext';
 import { api } from '../api/axiosInstance';
 import { 
   Package, Users, ShoppingCart, Edit, Trash2, 
-  Plus, Search, X, LogOut, UserCheck, Save
+  Plus, Search, X, LogOut, UserCheck, Save, AlertTriangle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ui/Toast';
+
+// Confirmation Modal Component
+const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirmText = "Delete", cancelText = "Cancel" }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl max-w-md w-full p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+            <AlertTriangle className="w-6 h-6 text-red-600" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900">{title}</h3>
+        </div>
+        
+        <p className="text-gray-600 mb-6">{message}</p>
+        
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+          >
+            {cancelText}
+          </button>
+          <button
+            onClick={() => {
+              onConfirm();
+              onClose();
+            }}
+            className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors"
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Add Product Modal Component
 const AddProductModal = ({ onClose, onSubmit }) => {
@@ -18,10 +56,13 @@ const AddProductModal = ({ onClose, onSubmit }) => {
     brand: '',
     stock: '',
   });
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSubmit(formData);
+    setLoading(true);
+    await onSubmit(formData);
+    setLoading(false);
   };
 
   return (
@@ -60,6 +101,7 @@ const AddProductModal = ({ onClose, onSubmit }) => {
               <input
                 type="number"
                 required
+                step="0.01"
                 value={formData.price}
                 onChange={(e) => setFormData({...formData, price: e.target.value})}
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black"
@@ -97,9 +139,10 @@ const AddProductModal = ({ onClose, onSubmit }) => {
           </div>
           <button
             type="submit"
-            className="w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800"
+            disabled={loading}
+            className="w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50"
           >
-            Add Product
+            {loading ? 'Adding...' : 'Add Product'}
           </button>
         </form>
       </div>
@@ -117,10 +160,13 @@ const EditProductModal = ({ product, onClose, onSubmit }) => {
     brand: product.brand || '',
     stock: product.stock || '',
   });
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSubmit(product.id, formData);
+    setLoading(true);
+    await onSubmit(product.id, formData);
+    setLoading(false);
   };
 
   return (
@@ -156,6 +202,7 @@ const EditProductModal = ({ product, onClose, onSubmit }) => {
               <label className="block text-sm font-medium mb-1">Price</label>
               <input
                 type="number"
+                step="0.01"
                 value={formData.price}
                 onChange={(e) => setFormData({...formData, price: e.target.value})}
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black"
@@ -171,11 +218,30 @@ const EditProductModal = ({ product, onClose, onSubmit }) => {
               />
             </div>
           </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Category</label>
+            <input
+              type="text"
+              value={formData.category}
+              onChange={(e) => setFormData({...formData, category: e.target.value})}
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Brand</label>
+            <input
+              type="text"
+              value={formData.brand}
+              onChange={(e) => setFormData({...formData, brand: e.target.value})}
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black"
+            />
+          </div>
           <button
             type="submit"
-            className="w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800"
+            disabled={loading}
+            className="w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50"
           >
-            Update Product
+            {loading ? 'Updating...' : 'Update Product'}
           </button>
         </form>
       </div>
@@ -183,7 +249,7 @@ const EditProductModal = ({ product, onClose, onSubmit }) => {
   );
 };
 
-// Add/Edit User Modal Component (Works for both API and Registered users)
+// Add/Edit User Modal Component
 const UserModal = ({ user, onClose, onSubmit, isEdit = false }) => {
   const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
@@ -194,14 +260,17 @@ const UserModal = ({ user, onClose, onSubmit, isEdit = false }) => {
     phone: user?.phone || '',
     image: user?.image || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + Math.random(),
   });
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     if (isEdit) {
-      onSubmit(user.id, formData);
+      await onSubmit(user.id, formData);
     } else {
-      onSubmit(formData);
+      await onSubmit(formData);
     }
+    setLoading(false);
   };
 
   return (
@@ -280,9 +349,10 @@ const UserModal = ({ user, onClose, onSubmit, isEdit = false }) => {
           </div>
           <button
             type="submit"
-            className="w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800"
+            disabled={loading}
+            className="w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50"
           >
-            {isEdit ? 'Update User' : 'Add User'}
+            {loading ? (isEdit ? 'Updating...' : 'Adding...') : (isEdit ? 'Update User' : 'Add User')}
           </button>
         </form>
       </div>
@@ -298,13 +368,11 @@ const AdminDashboard = () => {
   
   const [activeTab, setActiveTab] = useState('products');
   const [products, setProducts] = useState([]);
-  const [apiUsers, setApiUsers] = useState([]);
-  const [registeredUsers, setRegisteredUsers] = useState([]);
+  const [users, setUsers] = useState([]);
   const [carts, setCarts] = useState([]);
   const [stats, setStats] = useState({
     totalProducts: 0,
-    totalApiUsers: 0,
-    totalRegisteredUsers: 0,
+    totalUsers: 0,
     totalCarts: 0,
   });
   const [searchQuery, setSearchQuery] = useState('');
@@ -313,33 +381,16 @@ const AdminDashboard = () => {
   // Modal states
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [showAddApiUserModal, setShowAddApiUserModal] = useState(false);
-  const [editingApiUser, setEditingApiUser] = useState(null);
-  const [showAddRegisteredUserModal, setShowAddRegisteredUserModal] = useState(false);
-  const [editingRegisteredUser, setEditingRegisteredUser] = useState(null);
-
-  // Load registered users from localStorage
-  const loadRegisteredUsers = () => {
-    try {
-      const users = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
-      setRegisteredUsers(users);
-      return users;
-    } catch (error) {
-      console.error('Error loading registered users:', error);
-      return [];
-    }
-  };
-
-  // Save registered users to localStorage
-  const saveRegisteredUsers = (users) => {
-    try {
-      localStorage.setItem('registeredUsers', JSON.stringify(users));
-      setRegisteredUsers(users);
-    } catch (error) {
-      console.error('Error saving registered users:', error);
-      showError('Failed to save users');
-    }
-  };
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
 
   useEffect(() => {
     fetchDashboardData();
@@ -349,24 +400,20 @@ const AdminDashboard = () => {
     setLoading(true);
     try {
       const [productsRes, usersRes, cartsRes] = await Promise.all([
-        api.getAllProducts({ limit: 10 }),
-        api.getAllUsers({ limit: 10 }),
-        api.getAllCarts({ limit: 10 }),
+        api.getAllProducts({ limit: 100 }),
+        api.getAllUsers({ limit: 100 }),
+        api.getAllCarts({ limit: 100 }),
       ]);
 
-      const localUsers = loadRegisteredUsers();
-
       setProducts(productsRes.data.products || []);
-      setApiUsers(usersRes.data.users || []);
+      setUsers(usersRes.data.users || []);
+      setCarts(cartsRes.data.carts || []);
       
       setStats({
         totalProducts: productsRes.data.total || 0,
-        totalApiUsers: usersRes.data.total || 0,
-        totalRegisteredUsers: localUsers.length,
+        totalUsers: usersRes.data.total || 0,
         totalCarts: cartsRes.data.total || 0,
       });
-      
-      setCarts(cartsRes.data.carts || []);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       showError('Failed to load dashboard data');
@@ -375,16 +422,33 @@ const AdminDashboard = () => {
     }
   };
 
+  // Helper function to check if an ID is from the original DummyJSON dataset
+  // DummyJSON products have IDs 1-194, so IDs > 194 are locally added
+  const isLocallyAddedProduct = (id) => id > 194;
+  const isLocallyAddedUser = (id) => id > 208; // DummyJSON has 208 users
+  const isLocallyAddedCart = (id) => id > 20; // DummyJSON has 20 carts
+
   // ==================== PRODUCT CRUD ====================
   
   const handleAddProduct = async (productData) => {
     try {
-      const response = await api.addProduct(productData);
+      const response = await api.addProduct({
+        ...productData,
+        price: parseFloat(productData.price),
+        stock: parseInt(productData.stock),
+      });
       
       if (response.data) {
-        success(`Product "${productData.title}" added successfully!`);
-        setProducts([response.data, ...products]);
+        // Add thumbnail for new products
+        const newProduct = {
+          ...response.data,
+          thumbnail: 'https://via.placeholder.com/150',
+          isLocallyAdded: true, // Mark as locally added
+        };
+        
+        setProducts([newProduct, ...products]);
         setStats({...stats, totalProducts: stats.totalProducts + 1});
+        success(`Product "${productData.title}" added successfully!`);
         setShowAddProductModal(false);
       }
     } catch (error) {
@@ -395,13 +459,27 @@ const AdminDashboard = () => {
 
   const handleUpdateProduct = async (productId, productData) => {
     try {
-      const response = await api.updateProduct(productId, productData);
-      
-      if (response.data) {
-        success(`Product "${productData.title}" updated successfully!`);
-        setProducts(products.map(p => p.id === productId ? response.data : p));
-        setEditingProduct(null);
+      // Only call API for products that exist in DummyJSON database
+      if (!isLocallyAddedProduct(productId)) {
+        await api.updateProduct(productId, {
+          ...productData,
+          price: parseFloat(productData.price),
+          stock: parseInt(productData.stock),
+        });
       }
+      
+      // Always update local state (for both API products and locally added ones)
+      setProducts(products.map(p => 
+        p.id === productId ? { 
+          ...p, 
+          ...productData,
+          price: parseFloat(productData.price),
+          stock: parseInt(productData.stock),
+        } : p
+      ));
+      
+      success(`Product "${productData.title}" updated successfully!`);
+      setEditingProduct(null);
     } catch (error) {
       console.error('Update product error:', error);
       showError('Failed to update product');
@@ -409,30 +487,44 @@ const AdminDashboard = () => {
   };
 
   const handleDeleteProduct = async (productId, productTitle) => {
-    if (!window.confirm(`Are you sure you want to delete "${productTitle}"?`)) return;
-
-    try {
-      await api.deleteProduct(productId);
-      success(`Product "${productTitle}" deleted successfully!`);
-      setProducts(products.filter(p => p.id !== productId));
-      setStats({...stats, totalProducts: stats.totalProducts - 1});
-    } catch (error) {
-      console.error('Delete product error:', error);
-      showError('Failed to delete product');
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Product',
+      message: `Are you sure you want to delete "${productTitle}"? This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          // Only call API for products that exist in DummyJSON database
+          if (!isLocallyAddedProduct(productId)) {
+            await api.deleteProduct(productId);
+          }
+          
+          // Always update local state
+          setProducts(products.filter(p => p.id !== productId));
+          setStats({...stats, totalProducts: Math.max(0, stats.totalProducts - 1)});
+          success(`Product "${productTitle}" deleted successfully!`);
+        } catch (error) {
+          console.error('Delete product error:', error);
+          showError('Failed to delete product');
+        }
+      }
+    });
   };
 
-  // ==================== API USER CRUD ====================
+  // ==================== USER CRUD ====================
   
-  const handleAddApiUser = async (userData) => {
+  const handleAddUser = async (userData) => {
     try {
       const response = await api.addUser(userData);
       
       if (response.data) {
+        const newUser = {
+          ...response.data,
+          isLocallyAdded: true,
+        };
         success(`User "${userData.firstName} ${userData.lastName}" added successfully!`);
-        setApiUsers([response.data, ...apiUsers]);
-        setStats({...stats, totalApiUsers: stats.totalApiUsers + 1});
-        setShowAddApiUserModal(false);
+        setUsers([newUser, ...users]);
+        setStats({...stats, totalUsers: stats.totalUsers + 1});
+        setShowAddUserModal(false);
       }
     } catch (error) {
       console.error('Add user error:', error);
@@ -440,99 +532,74 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleUpdateApiUser = async (userId, userData) => {
+  const handleUpdateUser = async (userId, userData) => {
     try {
-      const response = await api.updateUser(userId, userData);
-      
-      if (response.data) {
-        success(`User "${userData.firstName} ${userData.lastName}" updated successfully!`);
-        setApiUsers(apiUsers.map(u => u.id === userId ? response.data : u));
-        setEditingApiUser(null);
+      // Only call API for users that exist in DummyJSON database
+      if (!isLocallyAddedUser(userId)) {
+        await api.updateUser(userId, userData);
       }
+      
+      // Always update local state
+      setUsers(users.map(u => 
+        u.id === userId ? { ...u, ...userData } : u
+      ));
+      
+      success(`User "${userData.firstName} ${userData.lastName}" updated successfully!`);
+      setEditingUser(null);
     } catch (error) {
       console.error('Update user error:', error);
       showError('Failed to update user');
     }
   };
 
-  const handleDeleteApiUser = async (userId, userName) => {
-    if (!window.confirm(`Are you sure you want to delete user "${userName}"?`)) return;
-
-    try {
-      await api.deleteUser(userId);
-      success(`User "${userName}" deleted successfully!`);
-      setApiUsers(apiUsers.filter(u => u.id !== userId));
-      setStats({...stats, totalApiUsers: stats.totalApiUsers - 1});
-    } catch (error) {
-      console.error('Delete user error:', error);
-      showError('Failed to delete user');
-    }
-  };
-
-  // ==================== REGISTERED USER CRUD (LOCAL) ====================
-  
-  const handleAddRegisteredUser = (userData) => {
-    try {
-      const newUser = {
-        id: Date.now().toString(),
-        ...userData,
-        createdAt: new Date().toISOString(),
-        role: 'user',
-      };
-      
-      const updatedUsers = [newUser, ...registeredUsers];
-      saveRegisteredUsers(updatedUsers);
-      setStats({...stats, totalRegisteredUsers: updatedUsers.length});
-      success(`User "${userData.firstName} ${userData.lastName}" added successfully!`);
-      setShowAddRegisteredUserModal(false);
-    } catch (error) {
-      console.error('Add registered user error:', error);
-      showError('Failed to add user');
-    }
-  };
-
-  const handleUpdateRegisteredUser = (userId, userData) => {
-    try {
-      const updatedUsers = registeredUsers.map(u => 
-        u.id === userId ? { ...u, ...userData, updatedAt: new Date().toISOString() } : u
-      );
-      saveRegisteredUsers(updatedUsers);
-      success(`User "${userData.firstName} ${userData.lastName}" updated successfully!`);
-      setEditingRegisteredUser(null);
-    } catch (error) {
-      console.error('Update registered user error:', error);
-      showError('Failed to update user');
-    }
-  };
-
-  const handleDeleteRegisteredUser = (userId, userName) => {
-    if (!window.confirm(`Are you sure you want to delete "${userName}"?`)) return;
-
-    try {
-      const updatedUsers = registeredUsers.filter(u => u.id !== userId);
-      saveRegisteredUsers(updatedUsers);
-      setStats({...stats, totalRegisteredUsers: updatedUsers.length});
-      success(`User "${userName}" deleted successfully!`);
-    } catch (error) {
-      console.error('Delete error:', error);
-      showError('Failed to delete user');
-    }
+  const handleDeleteUser = async (userId, userName) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete User',
+      message: `Are you sure you want to delete "${userName}"? This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          // Only call API for users that exist in DummyJSON database
+          if (!isLocallyAddedUser(userId)) {
+            await api.deleteUser(userId);
+          }
+          
+          // Always update local state
+          setUsers(users.filter(u => u.id !== userId));
+          setStats({...stats, totalUsers: Math.max(0, stats.totalUsers - 1)});
+          success(`User "${userName}" deleted successfully!`);
+        } catch (error) {
+          console.error('Delete user error:', error);
+          showError('Failed to delete user');
+        }
+      }
+    });
   };
 
   // ==================== CART MANAGEMENT ====================
   
   const handleDeleteCart = async (cartId) => {
-    if (!window.confirm('Are you sure you want to delete this cart?')) return;
-
-    try {
-      await api.deleteCart(cartId);
-      success(`Cart #${cartId} deleted successfully!`);
-      setCarts(carts.filter(c => c.id !== cartId));
-      setStats({...stats, totalCarts: stats.totalCarts - 1});
-    } catch (error) {
-      console.error('Delete cart error:', error);
-      showError('Failed to delete cart');
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Cart',
+      message: `Are you sure you want to delete Cart #${cartId}? This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          // Only call API for carts that exist in DummyJSON database
+          if (!isLocallyAddedCart(cartId)) {
+            await api.deleteCart(cartId);
+          }
+          
+          // Always update local state
+          setCarts(carts.filter(c => c.id !== cartId));
+          setStats({...stats, totalCarts: Math.max(0, stats.totalCarts - 1)});
+          success(`Cart #${cartId} deleted successfully!`);
+        } catch (error) {
+          console.error('Delete cart error:', error);
+          showError('Failed to delete cart');
+        }
+      }
+    });
   };
 
   const handleLogout = () => {
@@ -553,7 +620,16 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Modals */}
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+      />
+
+      {/* Other Modals */}
       {showAddProductModal && (
         <AddProductModal
           onClose={() => setShowAddProductModal(false)}
@@ -567,33 +643,18 @@ const AdminDashboard = () => {
           onSubmit={handleUpdateProduct}
         />
       )}
-      {showAddApiUserModal && (
+      {showAddUserModal && (
         <UserModal
-          onClose={() => setShowAddApiUserModal(false)}
-          onSubmit={handleAddApiUser}
+          onClose={() => setShowAddUserModal(false)}
+          onSubmit={handleAddUser}
           isEdit={false}
         />
       )}
-      {editingApiUser && (
+      {editingUser && (
         <UserModal
-          user={editingApiUser}
-          onClose={() => setEditingApiUser(null)}
-          onSubmit={handleUpdateApiUser}
-          isEdit={true}
-        />
-      )}
-      {showAddRegisteredUserModal && (
-        <UserModal
-          onClose={() => setShowAddRegisteredUserModal(false)}
-          onSubmit={handleAddRegisteredUser}
-          isEdit={false}
-        />
-      )}
-      {editingRegisteredUser && (
-        <UserModal
-          user={editingRegisteredUser}
-          onClose={() => setEditingRegisteredUser(null)}
-          onSubmit={handleUpdateRegisteredUser}
+          user={editingUser}
+          onClose={() => setEditingUser(null)}
+          onSubmit={handleUpdateUser}
           isEdit={true}
         />
       )}
@@ -619,7 +680,7 @@ const AdminDashboard = () => {
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -632,19 +693,10 @@ const AdminDashboard = () => {
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">API Users</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.totalApiUsers}</p>
+                <p className="text-sm text-gray-600 mb-1">Users</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.totalUsers}</p>
               </div>
               <Users className="w-12 h-12 text-green-600" />
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Registered</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.totalRegisteredUsers}</p>
-              </div>
-              <UserCheck className="w-12 h-12 text-purple-600" />
             </div>
           </div>
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
@@ -662,12 +714,12 @@ const AdminDashboard = () => {
         <div className="bg-white rounded-2xl border border-gray-100">
           <div className="border-b border-gray-200">
             <div className="flex space-x-8 px-6 overflow-x-auto">
-              {['Products', 'API Users', 'Registered Users', 'Carts'].map((tab) => (
+              {['Products', 'Users', 'Carts'].map((tab) => (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab.toLowerCase().replace(' ', '-'))}
+                  onClick={() => setActiveTab(tab.toLowerCase())}
                   className={`py-4 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
-                    activeTab === tab.toLowerCase().replace(' ', '-')
+                    activeTab === tab.toLowerCase()
                       ? 'border-black text-black'
                       : 'border-transparent text-gray-600 hover:text-gray-900'
                   }`}
@@ -709,7 +761,12 @@ const AdminDashboard = () => {
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-3">
                               <img src={product.thumbnail} alt="" className="w-12 h-12 rounded-lg object-cover" />
-                              <span className="font-medium">{product.title}</span>
+                              <div>
+                                <span className="font-medium">{product.title}</span>
+                                {product.isLocallyAdded && (
+                                  <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">New</span>
+                                )}
+                              </div>
                             </div>
                           </td>
                           <td className="py-4 px-4">{product.category}</td>
@@ -739,13 +796,13 @@ const AdminDashboard = () => {
               </div>
             )}
 
-            {/* API USERS TAB */}
-            {activeTab === 'api-users' && (
+            {/* USERS TAB */}
+            {activeTab === 'users' && (
               <div>
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-bold">API Users Management</h2>
+                  <h2 className="text-xl font-bold">Users Management</h2>
                   <button
-                    onClick={() => setShowAddApiUserModal(true)}
+                    onClick={() => setShowAddUserModal(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-full hover:bg-gray-800"
                   >
                     <Plus className="w-4 h-4" />
@@ -758,36 +815,39 @@ const AdminDashboard = () => {
                       <tr className="border-b">
                         <th className="text-left py-3 px-4">User</th>
                         <th className="text-left py-3 px-4">Email</th>
-                        <th className="text-left py-3 px-4">Role</th>
+                        <th className="text-left py-3 px-4">Phone</th>
                         <th className="text-right py-3 px-4">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {apiUsers.map((apiUser) => (
-                        <tr key={apiUser.id} className="border-b hover:bg-gray-50">
+                      {users.map((userData) => (
+                        <tr key={userData.id} className="border-b hover:bg-gray-50">
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-3">
-                              <img src={apiUser.image} alt="" className="w-10 h-10 rounded-full" />
+                              <img src={userData.image} alt="" className="w-10 h-10 rounded-full" />
                               <div>
-                                <p className="font-medium">{apiUser.firstName} {apiUser.lastName}</p>
-                                <p className="text-sm text-gray-500">@{apiUser.username}</p>
+                                <p className="font-medium">
+                                  {userData.firstName} {userData.lastName}
+                                  {userData.isLocallyAdded && (
+                                    <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">New</span>
+                                  )}
+                                </p>
+                                <p className="text-sm text-gray-500">@{userData.username}</p>
                               </div>
                             </div>
                           </td>
-                          <td className="py-4 px-4">{apiUser.email}</td>
-                          <td className="py-4 px-4">
-                            <span className="px-3 py-1 text-xs bg-gray-100 rounded-full">{apiUser.role || 'user'}</span>
-                          </td>
+                          <td className="py-4 px-4">{userData.email}</td>
+                          <td className="py-4 px-4">{userData.phone}</td>
                           <td className="py-4 px-4">
                             <div className="flex justify-end gap-2">
                               <button
-                                onClick={() => setEditingApiUser(apiUser)}
+                                onClick={() => setEditingUser(userData)}
                                 className="p-2 hover:bg-gray-100 rounded-lg"
                               >
                                 <Edit className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={() => handleDeleteApiUser(apiUser.id, `${apiUser.firstName} ${apiUser.lastName}`)}
+                                onClick={() => handleDeleteUser(userData.id, `${userData.firstName} ${userData.lastName}`)}
                                 className="p-2 hover:bg-red-50 rounded-lg"
                               >
                                 <Trash2 className="w-4 h-4 text-red-600" />
@@ -799,81 +859,6 @@ const AdminDashboard = () => {
                     </tbody>
                   </table>
                 </div>
-              </div>
-            )}
-
-            {/* REGISTERED USERS TAB */}
-            {activeTab === 'registered-users' && (
-              <div>
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-bold">Registered Users</h2>
-                  <button
-                    onClick={() => setShowAddRegisteredUserModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-full hover:bg-gray-800"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add User
-                  </button>
-                </div>
-                {registeredUsers.length === 0 ? (
-                  <div className="text-center py-12 bg-gray-50 rounded-lg">
-                    <UserCheck className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600 mb-4">No registered users yet</p>
-                    <button
-                      onClick={() => setShowAddRegisteredUserModal(true)}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded-full hover:bg-gray-800"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add First User
-                    </button>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-3 px-4">User</th>
-                          <th className="text-left py-3 px-4">Email</th>
-                          <th className="text-left py-3 px-4">Joined</th>
-                          <th className="text-right py-3 px-4">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {registeredUsers.map((regUser) => (
-                          <tr key={regUser.id} className="border-b hover:bg-gray-50">
-                            <td className="py-4 px-4">
-                              <div className="flex items-center gap-3">
-                                <img src={regUser.image} alt="" className="w-10 h-10 rounded-full" />
-                                <div>
-                                  <p className="font-medium">{regUser.firstName} {regUser.lastName}</p>
-                                  <p className="text-sm text-gray-500">@{regUser.username}</p>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">{regUser.email}</td>
-                            <td className="py-4 px-4">{new Date(regUser.createdAt).toLocaleDateString()}</td>
-                            <td className="py-4 px-4">
-                              <div className="flex justify-end gap-2">
-                                <button
-                                  onClick={() => setEditingRegisteredUser(regUser)}
-                                  className="p-2 hover:bg-gray-100 rounded-lg"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteRegisteredUser(regUser.id, `${regUser.firstName} ${regUser.lastName}`)}
-                                  className="p-2 hover:bg-red-50 rounded-lg"
-                                >
-                                  <Trash2 className="w-4 h-4 text-red-600" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
               </div>
             )}
 
